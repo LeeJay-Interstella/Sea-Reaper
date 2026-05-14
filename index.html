@@ -507,9 +507,313 @@
   .toast.show { opacity: 1; }
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-thumb { background: rgba(200,146,42,0.3); border-radius: 2px; }
+
+  /* ---- INTRO SCREEN ---- */
+  #intro-screen {
+    position: fixed; inset: 0; z-index: 500;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+  #intro-screen.hidden {
+    pointer-events: none;
+    animation: introFadeOut 1s ease-in forwards;
+  }
+  @keyframes introFadeOut {
+    0%   { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1.04); }
+  }
+
+  /* Deep night sea background */
+  .intro-bg {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg,
+      #02050a 0%,
+      #05101e 25%,
+      #071828 55%,
+      #0d2a40 80%,
+      #0a1e30 100%);
+  }
+
+  /* Animated stars */
+  .intro-stars {
+    position: absolute; inset: 0;
+    background-image:
+      radial-gradient(1.5px 1.5px at 5%  8%,  rgba(255,255,220,1)   0%, transparent 100%),
+      radial-gradient(1px   1px   at 12% 3%,  rgba(255,255,220,0.8) 0%, transparent 100%),
+      radial-gradient(2px   2px   at 18% 14%, rgba(255,255,255,1)   0%, transparent 100%),
+      radial-gradient(1px   1px   at 26% 6%,  rgba(255,255,220,0.9) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 33% 2%,  rgba(255,255,220,0.7) 0%, transparent 100%),
+      radial-gradient(1px   1px   at 40% 10%, rgba(255,255,255,0.9) 0%, transparent 100%),
+      radial-gradient(2px   2px   at 47% 5%,  rgba(255,255,220,1)   0%, transparent 100%),
+      radial-gradient(1px   1px   at 55% 12%, rgba(255,255,220,0.8) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 62% 3%,  rgba(255,255,255,0.9) 0%, transparent 100%),
+      radial-gradient(1px   1px   at 70% 9%,  rgba(255,255,220,0.7) 0%, transparent 100%),
+      radial-gradient(2px   2px   at 77% 2%,  rgba(255,255,255,1)   0%, transparent 100%),
+      radial-gradient(1px   1px   at 84% 7%,  rgba(255,255,220,0.9) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 91% 13%, rgba(255,255,220,0.8) 0%, transparent 100%),
+      radial-gradient(1px   1px   at 96% 4%,  rgba(255,255,220,0.7) 0%, transparent 100%),
+      radial-gradient(1px   1px   at 8%  20%, rgba(255,255,220,0.5) 0%, transparent 100%),
+      radial-gradient(1px   1px   at 22% 18%, rgba(255,255,220,0.6) 0%, transparent 100%),
+      radial-gradient(1px   1px   at 38% 22%, rgba(255,255,220,0.5) 0%, transparent 100%),
+      radial-gradient(1px   1px   at 53% 17%, rgba(255,255,220,0.7) 0%, transparent 100%),
+      radial-gradient(1px   1px   at 68% 21%, rgba(255,255,220,0.5) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 82% 16%, rgba(255,255,255,0.8) 0%, transparent 100%),
+      radial-gradient(1px   1px   at 94% 19%, rgba(255,255,220,0.6) 0%, transparent 100%);
+    animation: starTwinkle 4s ease-in-out infinite alternate;
+  }
+  @keyframes starTwinkle {
+    0%   { opacity: 0.7; }
+    100% { opacity: 1; }
+  }
+
+  /* Moon */
+  .intro-moon {
+    position: absolute;
+    top: 8%; right: 14%;
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 38% 38%, #fffef0, #e8d898);
+    box-shadow: 0 0 20px 8px rgba(255,240,160,0.3), 0 0 60px 15px rgba(255,240,160,0.1);
+    animation: moonGlow 3s ease-in-out infinite alternate;
+  }
+  @keyframes moonGlow {
+    0%   { box-shadow: 0 0 20px 8px rgba(255,240,160,0.25), 0 0 60px 15px rgba(255,240,160,0.08); }
+    100% { box-shadow: 0 0 28px 12px rgba(255,240,160,0.4), 0 0 80px 20px rgba(255,240,160,0.15); }
+  }
+
+  /* Distant shore / horizon line */
+  .intro-horizon {
+    position: absolute;
+    bottom: 34%; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(74,138,176,0.4) 20%, rgba(100,160,200,0.6) 50%, rgba(74,138,176,0.4) 80%, transparent 100%);
+  }
+
+  /* Ocean */
+  .intro-ocean {
+    position: absolute;
+    bottom: 0; left: 0; right: 0; height: 35%;
+    background: linear-gradient(180deg, #0d2a40, #050f1a);
+  }
+
+  /* Waves */
+  .intro-wave {
+    position: absolute; bottom: 33%; left: 0;
+    width: 200%; height: 80px; opacity: 0.2;
+  }
+  .intro-wave svg { width: 100%; height: 100%; }
+  .intro-wave-1 { animation: waveScroll 8s linear infinite; }
+  .intro-wave-2 { animation: waveScroll 13s linear infinite reverse; opacity: 0.12; bottom: 35%; }
+
+  /* Distant ship silhouette on horizon */
+  .intro-distant-ship {
+    position: absolute;
+    bottom: 34.5%;
+    right: 18%;
+    opacity: 0.25;
+    animation: distantDrift 18s ease-in-out infinite alternate;
+  }
+  @keyframes distantDrift {
+    0%   { transform: translateX(0px); }
+    100% { transform: translateX(-30px); }
+  }
+
+  /* Water shimmer */
+  .intro-shimmer {
+    position: absolute;
+    bottom: 28%; left: 15%; width: 70%; height: 5px;
+    background: linear-gradient(90deg, transparent, rgba(74,138,176,0.4), transparent);
+    border-radius: 3px;
+    animation: shimmer 2.5s ease-in-out infinite;
+  }
+  .intro-shimmer-2 {
+    position: absolute;
+    bottom: 22%; left: 25%; width: 50%; height: 3px;
+    background: linear-gradient(90deg, transparent, rgba(74,138,176,0.25), transparent);
+    border-radius: 3px;
+    animation: shimmer 3.5s ease-in-out infinite reverse;
+  }
+
+  /* Content */
+  .intro-content {
+    position: relative; z-index: 2;
+    display: flex; flex-direction: column;
+    align-items: center;
+    padding: 0 24px;
+    margin-bottom: 8%;
+    text-align: center;
+  }
+
+  .intro-anchor {
+    font-size: 44px;
+    animation: anchorBob 3s ease-in-out infinite;
+    filter: drop-shadow(0 0 12px rgba(200,146,42,0.6));
+    margin-bottom: 14px;
+  }
+  @keyframes anchorBob {
+    0%,100% { transform: translateY(0px); }
+    50%      { transform: translateY(-8px); }
+  }
+
+  .intro-title {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 36px;
+    color: var(--gold-light);
+    letter-spacing: 6px;
+    text-shadow:
+      0 0 30px rgba(200,146,42,0.8),
+      0 0 60px rgba(200,146,42,0.4),
+      0 2px 4px rgba(0,0,0,0.8);
+    animation: titlePulse 4s ease-in-out infinite alternate;
+    line-height: 1.1;
+  }
+  @keyframes titlePulse {
+    0%   { text-shadow: 0 0 20px rgba(200,146,42,0.6), 0 2px 4px rgba(0,0,0,0.8); }
+    100% { text-shadow: 0 0 40px rgba(200,146,42,1), 0 0 80px rgba(200,146,42,0.4), 0 2px 4px rgba(0,0,0,0.8); }
+  }
+
+  .intro-divider {
+    width: 120px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    margin: 14px auto;
+  }
+
+  .intro-tagline {
+    font-family: 'Crimson Text', Georgia, serif;
+    font-size: 15px;
+    color: var(--parchment-dark);
+    font-style: italic;
+    letter-spacing: 1px;
+    line-height: 1.7;
+    max-width: 280px;
+    opacity: 0.9;
+  }
+
+  .intro-lore {
+    font-family: 'Crimson Text', Georgia, serif;
+    font-size: 13px;
+    color: rgba(200,180,140,0.7);
+    font-style: italic;
+    margin-top: 10px;
+    max-width: 260px;
+    line-height: 1.6;
+  }
+
+  .intro-continue-btn {
+    margin-top: 32px;
+    position: relative;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    outline: none;
+  }
+  .intro-continue-inner {
+    display: flex; align-items: center; gap: 10px;
+    background: linear-gradient(135deg, rgba(200,146,42,0.15), rgba(200,146,42,0.05));
+    border: 1px solid rgba(200,146,42,0.5);
+    border-radius: 4px;
+    padding: 14px 34px;
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 11px;
+    color: var(--gold-light);
+    letter-spacing: 3px;
+    transition: all 0.3s;
+    box-shadow: 0 0 20px rgba(200,146,42,0.1);
+  }
+  .intro-continue-btn:hover .intro-continue-inner {
+    background: linear-gradient(135deg, rgba(200,146,42,0.3), rgba(200,146,42,0.1));
+    border-color: var(--gold-light);
+    box-shadow: 0 0 30px rgba(200,146,42,0.3);
+    transform: translateY(-2px);
+    color: #fff8e0;
+  }
+  .intro-continue-btn:active .intro-continue-inner {
+    transform: translateY(0px);
+  }
+  .intro-arrow {
+    font-size: 14px;
+    animation: arrowPulse 1.5s ease-in-out infinite;
+  }
+  @keyframes arrowPulse {
+    0%,100% { transform: translateX(0); opacity: 1; }
+    50%      { transform: translateX(5px); opacity: 0.6; }
+  }
+
+  .intro-version {
+    position: absolute;
+    bottom: 20px; left: 50%; transform: translateX(-50%);
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 8px; color: rgba(200,180,140,0.3);
+    letter-spacing: 2px; white-space: nowrap;
+  }
+
+  /* Fog wisps at bottom */
+  .intro-fog {
+    position: absolute;
+    bottom: 32%; left: 0; right: 0; height: 60px;
+    background: linear-gradient(180deg, transparent, rgba(20,40,60,0.3));
+    pointer-events: none;
+  }
 </style>
 </head>
 <body>
+
+<!-- ══ INTRO SCREEN ══════════════════════════════════════════════════════ -->
+<div id="intro-screen">
+  <div class="intro-bg"></div>
+  <div class="intro-stars"></div>
+  <div class="intro-moon"></div>
+
+  <!-- Distant ship silhouette -->
+  <div class="intro-distant-ship">
+    <svg width="60" height="40" viewBox="0 0 60 40" xmlns="http://www.w3.org/2000/svg">
+      <path d="M8,28 Q30,34 52,28 L46,38 Q30,42 14,38 Z" fill="rgba(255,255,255,0.9)"/>
+      <line x1="25" y1="5" x2="25" y2="30" stroke="rgba(255,255,255,0.9)" stroke-width="1.5"/>
+      <path d="M25,7 C36,12 37,22 25,26 Z" fill="rgba(255,255,255,0.8)"/>
+      <path d="M25,7 C14,12 13,22 25,26 Z" fill="rgba(255,255,255,0.6)"/>
+    </svg>
+  </div>
+
+  <div class="intro-horizon"></div>
+  <div class="intro-ocean"></div>
+  <div class="intro-wave intro-wave-1">
+    <svg viewBox="0 0 1440 80" preserveAspectRatio="none">
+      <path d="M0,40 C180,65 360,15 540,40 C720,65 900,15 1080,40 C1260,65 1350,25 1440,40 L1440,80 L0,80 Z" fill="rgba(74,138,176,0.8)"/>
+    </svg>
+  </div>
+  <div class="intro-wave intro-wave-2">
+    <svg viewBox="0 0 1440 80" preserveAspectRatio="none">
+      <path d="M0,30 C240,55 480,5 720,30 C960,55 1200,8 1440,30 L1440,80 L0,80 Z" fill="rgba(42,90,140,0.6)"/>
+    </svg>
+  </div>
+  <div class="intro-shimmer"></div>
+  <div class="intro-shimmer-2"></div>
+  <div class="intro-fog"></div>
+
+  <div class="intro-content">
+    <div class="intro-anchor">⚓</div>
+    <div class="intro-title">SEA REAPER</div>
+    <div class="intro-divider"></div>
+    <div class="intro-tagline">
+      Your ship is the hero.<br>
+      The sea changes with the tide.
+    </div>
+    <div class="intro-lore">
+      Send it into the unknown.<br>Pray it returns.
+    </div>
+    <button class="intro-continue-btn" onclick="startGame()">
+      <div class="intro-continue-inner">
+        WEIGH ANCHOR
+        <span class="intro-arrow">›</span>
+      </div>
+    </button>
+  </div>
+
+  <div class="intro-version">MVP v2.0</div>
+</div>
+<!-- ══ END INTRO ═════════════════════════════════════════════════════════ -->
 <div class="ocean-bg phase-day" id="oceanBg">
   <div class="stars"></div>
   <div class="moon"></div>
@@ -948,6 +1252,12 @@ function getNightMarketItems() {
 // ── END DAY / NIGHT SYSTEM ───────────────────────────────────────────────────
 
 let battleState = null, voyageInterval = null;
+
+function startGame() {
+  const intro = document.getElementById('intro-screen');
+  intro.classList.add('hidden');
+  setTimeout(() => intro.remove(), 1000);
+}
 
 function init() {
   renderUpgrades(); updateStats(); renderDockMarket();
