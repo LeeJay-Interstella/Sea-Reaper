@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sea Reaper — Pirate Ship Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a0f08;
+    --parchment: #f2e8d0;
+    --parchment-dark: #d4c4a0;
+    --gold: #c8922a;
+    --gold-light: #e8b84b;
+    --rust: #8b3a2a;
+    --sea: #1a3a5c;
+    --sea-light: #2a5a8c;
+    --sea-foam: #4a8ab0;
+    --wood: #5c3a1a;
+    --wood-light: #8b5a2a;
+    --blood: #7a1a1a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--ink);
+    color: var(--parchment);
+    font-family: 'Crimson Text', Georgia, serif;
+    font-size: 17px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  .ocean-bg {
+    position: fixed; inset: 0; z-index: 0;
+    overflow: hidden;
+    transition: background 90s linear;
+  }
+  /* Phase backgrounds */
+  .ocean-bg.phase-day    { background: linear-gradient(180deg, #1a6aaa 0%, #2a8acc 30%, #1a5a8c 60%, #0d3a6a 100%); }
+  .ocean-bg.phase-dawn   { background: linear-gradient(180deg, #6a2a1a 0%, #c85a20 25%, #e8924a 45%, #2a5a8c 70%, #0d2640 100%); }
+  .ocean-bg.phase-dusk   { background: linear-gradient(180deg, #4a1a3a 0%, #8a2a5a 20%, #c8603a 40%, #4a3a6a 65%, #0d1a3a 100%); }
+  .ocean-bg.phase-night  { background: linear-gradient(180deg, #04080f 0%, #080f1a 30%, #0a1828 60%, #0d1e30 100%); }
+
+  .wave { position: absolute; bottom: 0; width: 200%; height: 120px; opacity: 0.18; }
+  .wave svg { width: 100%; height: 100%; }
+  .wave-1 { animation: waveScroll 8s linear infinite; }
+  .wave-2 { animation: waveScroll 12s linear infinite reverse; opacity: 0.1; bottom: 10px; }
+
+  /* Stars — only visible at night/dusk */
+  .stars {
+    position: absolute; inset: 0;
+    opacity: 0; transition: opacity 3s ease;
+    background-image:
+      radial-gradient(1px 1px at 8% 6%, rgba(255,255,220,0.95) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 15% 12%, rgba(255,255,220,0.8) 0%, transparent 100%),
+      radial-gradient(1px 1px at 22% 4%, rgba(255,255,220,0.9) 0%, transparent 100%),
+      radial-gradient(1px 1px at 30% 9%, rgba(255,255,220,0.7) 0%, transparent 100%),
+      radial-gradient(2px 2px at 38% 3%, rgba(255,255,255,1) 0%, transparent 100%),
+      radial-gradient(1px 1px at 45% 14%, rgba(255,255,220,0.6) 0%, transparent 100%),
+      radial-gradient(1px 1px at 52% 7%, rgba(255,255,220,0.85) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 60% 2%, rgba(255,255,255,0.9) 0%, transparent 100%),
+      radial-gradient(1px 1px at 67% 11%, rgba(255,255,220,0.7) 0%, transparent 100%),
+      radial-gradient(1px 1px at 74% 5%, rgba(255,255,220,0.8) 0%, transparent 100%),
+      radial-gradient(2px 2px at 80% 8%, rgba(255,255,255,0.95) 0%, transparent 100%),
+      radial-gradient(1px 1px at 87% 15%, rgba(255,255,220,0.6) 0%, transparent 100%),
+      radial-gradient(1px 1px at 93% 3%, rgba(255,255,220,0.85) 0%, transparent 100%),
+      radial-gradient(1px 1px at 5% 22%, rgba(255,255,220,0.5) 0%, transparent 100%),
+      radial-gradient(1px 1px at 35% 19%, rgba(255,255,220,0.7) 0%, transparent 100%),
+      radial-gradient(1px 1px at 55% 24%, rgba(255,255,220,0.6) 0%, transparent 100%),
+      radial-gradient(1px 1px at 72% 20%, rgba(255,255,220,0.8) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 88% 17%, rgba(255,255,255,0.9) 0%, transparent 100%);
+  }
+  .phase-night .stars  { opacity: 1; }
+  .phase-dusk .stars   { opacity: 0.4; }
+  .phase-dawn .stars   { opacity: 0.2; }
+
+  /* Moon */
+  .moon {
+    position: absolute; top: 8%; right: 12%;
+    width: 44px; height: 44px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #fff8e0, #e8d898);
+    box-shadow: 0 0 18px 6px rgba(255,240,160,0.35), 0 0 50px 10px rgba(255,240,160,0.12);
+    opacity: 0; transition: opacity 3s ease, transform 3s ease;
+    transform: scale(0.6);
+  }
+  .phase-night .moon { opacity: 1; transform: scale(1); }
+  .phase-dusk  .moon { opacity: 0.4; transform: scale(0.85); }
+  .phase-dawn  .moon { opacity: 0.2; transform: scale(0.8); }
+
+  /* Sun */
+  .sun {
+    position: absolute; top: 10%; left: 14%;
+    width: 50px; height: 50px; border-radius: 50%;
+    background: radial-gradient(circle at 40% 40%, #fff0a0, #ffb830);
+    box-shadow: 0 0 24px 8px rgba(255,200,50,0.4), 0 0 70px 20px rgba(255,160,30,0.15);
+    opacity: 0; transition: opacity 3s ease, transform 3s ease;
+    transform: scale(0.5) translateY(20px);
+  }
+  .phase-day  .sun { opacity: 1; transform: scale(1) translateY(0); }
+  .phase-dawn .sun { opacity: 0.7; transform: scale(0.75) translateY(10px); }
+  .phase-dusk .sun { opacity: 0.5; transform: scale(0.7) translateY(12px); }
+
+  /* Fog layer — night only */
+  .fog {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 35%;
+    background: linear-gradient(180deg, transparent, rgba(30,50,70,0.25));
+    opacity: 0; transition: opacity 4s ease;
+    pointer-events: none;
+  }
+  .phase-night .fog { opacity: 1; }
+  .phase-dusk  .fog { opacity: 0.5; }
+
+  /* Ship lantern glow — night only */
+  .lantern-glow {
+    position: absolute;
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,180,60,0.45) 0%, transparent 70%);
+    top: 30%; left: 50%; transform: translate(-50%, -50%);
+    opacity: 0; transition: opacity 3s ease;
+    pointer-events: none; z-index: 3;
+  }
+  .phase-night .lantern-glow { opacity: 1; }
+  .phase-dusk  .lantern-glow { opacity: 0.5; }
+  .phase-dawn  .lantern-glow { opacity: 0.3; }
+
+  /* Phase indicator badge */
+  .phase-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: 'Cinzel Decorative', serif; font-size: 9px;
+    letter-spacing: 1px; padding: 3px 9px; border-radius: 10px;
+    margin-top: 4px; transition: all 1s ease;
+  }
+  .phase-badge.day   { background: rgba(255,180,50,0.15); color: #ffd070; border: 1px solid rgba(255,180,50,0.3); }
+  .phase-badge.dawn  { background: rgba(200,100,60,0.15); color: #e8a070; border: 1px solid rgba(200,100,60,0.3); }
+  .phase-badge.dusk  { background: rgba(140,60,120,0.15); color: #c888b8; border: 1px solid rgba(140,60,120,0.3); }
+  .phase-badge.night { background: rgba(60,80,140,0.25); color: #8899dd; border: 1px solid rgba(60,80,140,0.4); }
+
+  /* Night event banner */
+  .night-event-banner {
+    position: fixed; top: 0; left: 0; right: 0;
+    background: linear-gradient(90deg, #080f1a, #0d1a35, #080f1a);
+    border-bottom: 1px solid rgba(100,130,220,0.4);
+    padding: 10px 16px; z-index: 90;
+    display: none; align-items: center; gap: 10px;
+    animation: slideDown 0.5s ease-out;
+    max-width: 480px; margin: 0 auto;
+  }
+  .night-event-banner.show { display: flex; }
+  @keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .event-icon { font-size: 22px; }
+  .event-text { flex: 1; }
+  .event-title { font-family: 'Cinzel Decorative', serif; font-size: 10px; color: #8899dd; letter-spacing: 1px; }
+  .event-desc { font-size: 12px; color: var(--parchment-dark); font-style: italic; margin-top: 1px; }
+  .event-close { font-size: 18px; color: var(--parchment-dark); cursor: pointer; padding: 2px 4px; }
+
+  @keyframes waveScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+  #app {
+    position: relative; z-index: 1;
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    padding: 18px 20px 10px;
+    text-align: center;
+    border-bottom: 1px solid rgba(200,146,42,0.3);
+  }
+  .game-title {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 21px;
+    color: var(--gold-light);
+    letter-spacing: 2px;
+    text-shadow: 0 0 20px rgba(200,146,42,0.5);
+  }
+  .ship-name-display {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 11px;
+    color: var(--parchment-dark);
+    margin-top: 2px;
+    letter-spacing: 3px;
+  }
+  .resource-bar {
+    display: flex;
+    justify-content: center;
+    gap: 22px;
+    margin-top: 10px;
+    font-size: 14px;
+  }
+  .resource { display: flex; align-items: center; gap: 5px; color: var(--gold); font-weight: 600; }
+  .res-icon { font-size: 16px; }
+
+  .ship-scene {
+    position: relative;
+    height: 300px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 10px;
+    overflow: hidden;
+  }
+  .ship-sprite { position: relative; z-index: 2; }
+  .ship-sprite.rocking { animation: rock 3.5s ease-in-out infinite; }
+  .ship-sprite.sailing-away { animation: sailAway 2s ease-in forwards; }
+  .ship-sprite.returning { animation: sailReturn 2s ease-out forwards; }
+  @keyframes rock {
+    0%,100% { transform: rotate(-1.8deg) translateY(0px); }
+    50% { transform: rotate(1.8deg) translateY(-6px); }
+  }
+  @keyframes sailAway {
+    from { transform: translateX(0) scale(1); opacity: 1; }
+    to { transform: translateX(400px) scale(0.15); opacity: 0; }
+  }
+  @keyframes sailReturn {
+    from { transform: translateX(-400px) scale(0.15); opacity: 0; }
+    to { transform: translateX(0) scale(1); opacity: 1; }
+  }
+  .ship-svg { width: 320px; height: 260px; }
+  .dock-water {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 60px;
+    background: linear-gradient(180deg, transparent, rgba(26,58,92,0.75));
+    z-index: 1;
+  }
+  .water-shimmer {
+    position: absolute; bottom: 14px; left: 15%; width: 70%; height: 6px;
+    background: linear-gradient(90deg, transparent, rgba(74,138,176,0.6), transparent);
+    animation: shimmer 2s ease-in-out infinite; border-radius: 3px;
+  }
+  .water-shimmer2 {
+    position: absolute; bottom: 6px; left: 25%; width: 50%; height: 4px;
+    background: linear-gradient(90deg, transparent, rgba(74,138,176,0.35), transparent);
+    animation: shimmer 2.8s ease-in-out infinite reverse; border-radius: 3px;
+  }
+  @keyframes shimmer {
+    0%,100% { opacity: 0.4; transform: scaleX(0.8); }
+    50% { opacity: 1; transform: scaleX(1); }
+  }
+  .at-sea-label {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center; display: none; z-index: 3;
+  }
+  .at-sea-label.visible { display: block; }
+  .at-sea-label h3 {
+    font-family: 'Cinzel Decorative', serif; font-size: 15px;
+    color: var(--gold); text-shadow: 0 0 10px rgba(200,146,42,0.6);
+  }
+  .at-sea-label p { color: var(--parchment-dark); font-style: italic; font-size: 13px; margin-top: 4px; }
+  .timer-display {
+    font-family: 'Cinzel Decorative', serif; font-size: 22px;
+    color: var(--gold-light); margin-top: 8px;
+    text-shadow: 0 0 15px rgba(200,146,42,0.7);
+  }
+
+  /* Upgrade glow pulse on ship */
+  .ship-sprite.upgrade-flash { animation: upgradeGlow 0.8s ease-out; }
+  @keyframes upgradeGlow {
+    0%   { filter: drop-shadow(0 0 0px rgba(200,146,42,0)); }
+    30%  { filter: drop-shadow(0 0 28px rgba(200,146,42,1)) drop-shadow(0 0 50px rgba(232,184,75,0.8)); }
+    100% { filter: drop-shadow(0 0 0px rgba(200,146,42,0)); }
+  }
+
+  /* Particle burst */
+  .particle {
+    position: absolute;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 10;
+    animation: particleFly var(--dur) ease-out forwards;
+  }
+  @keyframes particleFly {
+    0%   { transform: translate(0,0) scale(1); opacity: 1; }
+    100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+  }
+
+  /* Upgrade label pop */
+  .upgrade-pop {
+    position: absolute;
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 13px;
+    color: var(--gold-light);
+    text-shadow: 0 0 10px rgba(200,146,42,0.8);
+    pointer-events: none;
+    z-index: 10;
+    white-space: nowrap;
+    animation: popUp 1.4s ease-out forwards;
+  }
+  @keyframes popUp {
+    0%   { transform: translateY(0) translateX(-50%); opacity: 1; }
+    100% { transform: translateY(-70px) translateX(-50%); opacity: 0; }
+  }
+
+  .tab-bar-wrapper {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(8,12,20,0.97);
+    backdrop-filter: blur(10px);
+    border-top: 2px solid rgba(200,146,42,0.35);
+    z-index: 50;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .tab-bar {
+    display: flex;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  .tab-btn {
+    flex: 1; padding: 10px 4px 8px; background: none; border: none;
+    color: var(--parchment-dark); font-family: 'Cinzel Decorative', serif;
+    font-size: 8px; letter-spacing: 0.8px; cursor: pointer; transition: all 0.2s;
+    border-top: 2px solid transparent;
+  }
+  .tab-btn:hover { color: var(--gold-light); }
+  .tab-btn.active { color: var(--gold); border-top-color: var(--gold); }
+  .tab-icon { font-size: 15px; display: block; margin-bottom: 2px; }
+
+  .panel {
+    flex: 1; padding: 15px 15px 80px; display: none;
+    flex-direction: column; gap: 11px; overflow-y: auto;
+  }
+  .panel.active { display: flex; }
+  .panel-title {
+    font-family: 'Cinzel Decorative', serif; font-size: 12px;
+    color: var(--gold); letter-spacing: 2px;
+    border-bottom: 1px solid rgba(200,146,42,0.25); padding-bottom: 8px;
+  }
+
+  .ship-stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat-card {
+    background: rgba(26,15,8,0.6); border: 1px solid rgba(200,146,42,0.2);
+    border-radius: 6px; padding: 10px 12px; position: relative; overflow: hidden;
+  }
+  .stat-card::before {
+    content: ''; position: absolute; top: 0; left: 0;
+    width: 3px; height: 100%; background: var(--gold); opacity: 0.6;
+  }
+  .stat-label { font-size: 10px; color: var(--parchment-dark); letter-spacing: 1px; text-transform: uppercase; }
+  .stat-value { font-family: 'Cinzel Decorative', serif; font-size: 20px; color: var(--gold-light); }
+  .stat-bar { height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+  .stat-fill { height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold-light)); border-radius: 2px; transition: width 0.4s ease; }
+
+  .upgrade-item {
+    background: rgba(26,15,8,0.5); border: 1px solid rgba(200,146,42,0.2);
+    border-radius: 8px; padding: 11px; display: flex; align-items: center; gap: 11px;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .upgrade-item:hover { border-color: rgba(200,146,42,0.5); background: rgba(26,15,8,0.7); }
+  .upgrade-icon { font-size: 24px; min-width: 34px; text-align: center; }
+  .upgrade-info { flex: 1; }
+  .upgrade-name { font-family: 'Cinzel Decorative', serif; font-size: 10px; color: var(--parchment); letter-spacing: 1px; }
+  .upgrade-desc { font-size: 13px; color: var(--parchment-dark); font-style: italic; margin-top: 2px; }
+  .upgrade-level { font-size: 11px; color: var(--gold); margin-top: 3px; }
+  .upgrade-btn {
+    background: linear-gradient(135deg, var(--gold), var(--wood)); border: none; border-radius: 5px;
+    color: var(--ink); font-family: 'Cinzel Decorative', serif; font-size: 8px;
+    padding: 6px 9px; cursor: pointer; transition: all 0.2s; white-space: nowrap; line-height: 1.5;
+  }
+  .upgrade-btn:hover { filter: brightness(1.15); transform: translateY(-1px); }
+  .upgrade-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .voyage-option {
+    background: rgba(26,15,8,0.5); border: 1px solid rgba(200,146,42,0.2);
+    border-radius: 8px; padding: 13px; cursor: pointer; transition: all 0.2s;
+  }
+  .voyage-option:hover { border-color: var(--gold); background: rgba(26,15,8,0.8); }
+  .voyage-header { display: flex; justify-content: space-between; align-items: flex-start; }
+  .voyage-name { font-family: 'Cinzel Decorative', serif; font-size: 11px; color: var(--gold-light); }
+  .voyage-risk { font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 600; }
+  .risk-low { background: rgba(40,100,40,0.4); color: #6dba6d; border: 1px solid #3a7a3a; }
+  .risk-med { background: rgba(120,80,20,0.4); color: var(--gold-light); border: 1px solid #8b6020; }
+  .risk-high { background: rgba(100,20,20,0.4); color: #d06060; border: 1px solid #7a2020; }
+  .voyage-desc { font-style: italic; color: var(--parchment-dark); margin-top: 6px; font-size: 14px; }
+  .voyage-reward { font-size: 13px; color: var(--gold); margin-top: 5px; }
+  .voyage-duration { font-size: 11px; color: var(--parchment-dark); margin-top: 2px; }
+
+  .voyage-option.night-voyage {
+    border-color: rgba(100,130,220,0.35);
+    background: rgba(8,12,28,0.65);
+  }
+  .voyage-option.night-voyage:hover { border-color: rgba(100,130,220,0.7); }
+
+  .log-entry {
+    background: rgba(26,15,8,0.4); border-left: 3px solid var(--gold);
+    padding: 9px 11px; border-radius: 0 6px 6px 0;
+    font-size: 14px; line-height: 1.5; color: var(--parchment);
+  }
+  .log-entry.battle { border-left-color: var(--rust); }
+  .log-entry.treasure { border-left-color: #4aaa4a; }
+  .log-time { font-size: 11px; color: var(--parchment-dark); margin-bottom: 2px; font-style: italic; }
+
+  /* BATTLE */
+  #battle-screen {
+    position: fixed; inset: 0; z-index: 100;
+    background: #0a0a15; display: none; flex-direction: column;
+  }
+  #battle-screen.active { display: flex; }
+  .battle-bg {
+    flex: 1; position: relative;
+    background: linear-gradient(180deg, #0a0f1a 0%, #1a2a3a 50%, #2a4a3a 100%);
+    overflow: hidden; min-height: 0;
+  }
+  .battle-sea { position: absolute; bottom: 0; left: 0; right: 0; height: 40%; background: linear-gradient(180deg, #1a3a5c, #0d2640); opacity: 0.8; }
+  .battle-horizon { position: absolute; bottom: 40%; left: 0; right: 0; height: 1px; background: rgba(74,138,176,0.3); }
+  .battle-flash { position: absolute; inset: 0; background: white; opacity: 0; pointer-events: none; }
+  .battle-flash.flash { animation: flashAnim 0.3s ease-out; }
+  @keyframes flashAnim { 0% { opacity: 0.6; } 100% { opacity: 0; } }
+
+  .enemy-ship-area { position: absolute; top: 12%; right: 8%; text-align: center; }
+  .enemy-ship-svg { width: 110px; height: 85px; }
+  .enemy-name { font-family: 'Cinzel Decorative', serif; font-size: 10px; color: #d06060; letter-spacing: 1px; margin-top: 3px; }
+  .enemy-hp-bar { width: 110px; height: 7px; background: rgba(255,255,255,0.1); border-radius: 4px; margin-top: 4px; overflow: hidden; }
+  .enemy-hp-fill { height: 100%; background: linear-gradient(90deg, #7a1a1a, #c04040); border-radius: 4px; transition: width 0.4s ease; }
+
+  .player-ship-area { position: absolute; bottom: 36%; left: 6%; text-align: center; }
+  .player-ship-svg { width: 140px; height: 110px; }
+  .player-name { font-family: 'Cinzel Decorative', serif; font-size: 10px; color: var(--gold); letter-spacing: 1px; margin-top: 3px; }
+  .player-hp-bar { width: 140px; height: 7px; background: rgba(255,255,255,0.1); border-radius: 4px; margin-top: 4px; overflow: hidden; }
+  .player-hp-fill { height: 100%; background: linear-gradient(90deg, var(--sea), var(--sea-foam)); border-radius: 4px; transition: width 0.4s ease; }
+
+  .battle-ui {
+    background: rgba(10,10,20,0.96); border-top: 2px solid rgba(200,146,42,0.4);
+    padding: 11px 15px; max-width: 480px; width: 100%; margin: 0 auto;
+  }
+  .battle-log {
+    background: rgba(26,15,8,0.6); border: 1px solid rgba(200,146,42,0.2);
+    border-radius: 6px; padding: 9px 12px; margin-bottom: 9px;
+    font-style: italic; font-size: 14px; color: var(--parchment); min-height: 42px; line-height: 1.5;
+  }
+  .hp-display { display: flex; justify-content: space-between; font-size: 12px; color: var(--parchment-dark); margin-bottom: 9px; }
+  .hp-you { color: var(--sea-foam); }
+  .hp-enemy { color: #d06060; }
+  .battle-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  .battle-btn {
+    background: rgba(26,15,8,0.7); border: 1px solid rgba(200,146,42,0.3);
+    border-radius: 6px; color: var(--parchment); font-family: 'Cinzel Decorative', serif;
+    font-size: 8px; letter-spacing: 1px; padding: 11px 7px; cursor: pointer;
+    transition: all 0.2s; text-align: center;
+  }
+  .battle-btn:hover:not(:disabled) { border-color: var(--gold); color: var(--gold-light); background: rgba(26,15,8,0.9); }
+  .battle-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .battle-btn .btn-icon { font-size: 17px; display: block; margin-bottom: 3px; }
+  .battle-btn small { font-family: 'Crimson Text', serif; font-size: 11px; color: var(--parchment-dark); font-style: italic; display: block; font-weight: 400; letter-spacing: 0; margin-top: 2px; }
+
+  /* RESULT */
+  #result-screen {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(10,8,5,0.95); display: none;
+    align-items: center; justify-content: center; flex-direction: column; padding: 28px;
+  }
+  #result-screen.active { display: flex; }
+  .result-card {
+    background: linear-gradient(135deg, rgba(26,15,8,0.95), rgba(10,8,5,0.98));
+    border: 2px solid var(--gold); border-radius: 12px; padding: 28px 22px;
+    text-align: center; max-width: 360px; width: 100%;
+    box-shadow: 0 0 40px rgba(200,146,42,0.3);
+  }
+  .result-icon { font-size: 50px; display: block; margin-bottom: 10px; }
+  .result-title { font-family: 'Cinzel Decorative', serif; font-size: 17px; color: var(--gold-light); text-shadow: 0 0 20px rgba(200,146,42,0.5); margin-bottom: 10px; }
+  .result-body { font-style: italic; color: var(--parchment); line-height: 1.6; font-size: 15px; }
+  .result-reward { margin-top: 13px; font-size: 16px; color: var(--gold); font-weight: 600; }
+  .result-btn {
+    margin-top: 18px; background: linear-gradient(135deg, var(--gold), var(--wood));
+    border: none; border-radius: 6px; color: var(--ink);
+    font-family: 'Cinzel Decorative', serif; font-size: 10px; padding: 11px 26px;
+    cursor: pointer; transition: all 0.2s; letter-spacing: 1px;
+  }
+  .result-btn:hover { filter: brightness(1.1); transform: translateY(-2px); }
+
+  .market-section-header {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 10px; color: var(--gold); letter-spacing: 1px;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 2px 4px; border-bottom: 1px solid rgba(200,146,42,0.2);
+    margin-bottom: 4px;
+  }
+  .sell-all-btn {
+    background: linear-gradient(135deg, #2a6a2a, #1a4a1a);
+    border: 1px solid #4aaa4a; border-radius: 5px;
+    color: #a0e0a0; font-family: 'Cinzel Decorative', serif;
+    font-size: 8px; padding: 4px 10px; cursor: pointer;
+    transition: all 0.2s; letter-spacing: 0.5px;
+  }
+  .sell-all-btn:hover { filter: brightness(1.2); }
+  .fish-haul-card { border-color: rgba(74,170,74,0.25) !important; }
+
+  .rare-catch-card {
+    border-color: #4aaa4a !important;
+    background: rgba(10,30,10,0.6) !important;
+    animation: rarePulse 2s ease-in-out infinite;
+  }
+  @keyframes rarePulse {
+    0%,100% { box-shadow: 0 0 0px rgba(74,170,74,0); }
+    50%      { box-shadow: 0 0 14px rgba(74,170,74,0.5); }
+  }
+
+  .toast {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    background: rgba(200,146,42,0.95); color: var(--ink);
+    padding: 8px 18px; border-radius: 20px; font-family: 'Cinzel Decorative', serif;
+    font-size: 10px; letter-spacing: 1px; opacity: 0; transition: opacity 0.3s;
+    pointer-events: none; z-index: 200; white-space: nowrap;
+  }
+  .toast.show { opacity: 1; }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-thumb { background: rgba(200,146,42,0.3); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="ocean-bg phase-day" id="oceanBg">
+  <div class="stars"></div>
+  <div class="moon"></div>
+  <div class="sun"></div>
+  <div class="fog"></div>
+  <div class="wave wave-1"><svg viewBox="0 0 1440 120" preserveAspectRatio="none"><path d="M0,60 C180,100 360,20 540,60 C720,100 900,20 1080,60 C1260,100 1350,40 1440,60 L1440,120 L0,120 Z" fill="rgba(74,138,176,0.6)"/></svg></div>
+  <div class="wave wave-2"><svg viewBox="0 0 1440 120" preserveAspectRatio="none"><path d="M0,40 C240,80 480,0 720,40 C960,80 1200,10 1440,40 L1440,120 L0,120 Z" fill="rgba(42,90,140,0.5)"/></svg></div>
+</div>
+
+<div id="app">
+  <div class="night-event-banner" id="nightEventBanner">
+    <div class="event-icon" id="eventIcon">🌙</div>
+    <div class="event-text">
+      <div class="event-title" id="eventTitle">NIGHT EVENT</div>
+      <div class="event-desc" id="eventDesc">Something stirs in the dark waters...</div>
+    </div>
+    <div class="event-close" onclick="dismissNightEvent()">✕</div>
+  </div>
+
+  <header>
+    <div class="game-title">⚓ SEA REAPER</div>
+    <div class="ship-name-display">THE CRIMSON TIDE</div>
+    <div style="display:flex;justify-content:center;margin-top:4px">
+      <div class="phase-badge day" id="phaseBadge">☀️ DAY</div>
+    </div>
+    <div class="resource-bar">
+      <div class="resource"><span class="res-icon">🪙</span><span id="goldDisplay">250</span></div>
+      <div class="resource"><span class="res-icon">💀</span>CAPTAIN</div>
+      <div class="resource"><span class="res-icon">⚡</span><span id="repDisplay">12</span> REP</div>
+    </div>
+  </header>
+
+  <div class="ship-scene" id="shipScene">
+    <div class="ship-sprite rocking" id="shipSprite">
+      <svg class="ship-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" id="shipSVG">
+        <!-- CARGO UPGRADE: reinforced keel -->
+        <g id="cargoUpgradeLayer" opacity="0">
+          <path d="M42,152 Q100,164 158,152 L160,158 Q100,170 40,158 Z" fill="#2a1a08"/>
+          <rect x="86" y="136" width="11" height="9" rx="2" fill="#5c3a1a" stroke="#8b5a2a" stroke-width="1"/>
+          <rect x="100" y="136" width="11" height="9" rx="2" fill="#5c3a1a" stroke="#8b5a2a" stroke-width="1"/>
+          <line x1="86" y1="140" x2="97" y2="140" stroke="#8b5a2a" stroke-width="0.8" opacity="0.7"/>
+          <line x1="100" y1="140" x2="111" y2="140" stroke="#8b5a2a" stroke-width="0.8" opacity="0.7"/>
+        </g>
+        <!-- Hull base -->
+        <path d="M26,112 Q100,128 174,112 L157,144 Q100,156 43,144 Z" fill="#3a1a08" stroke="#5c3a1a" stroke-width="2"/>
+        <path d="M43,144 Q100,158 157,144 L160,150 Q100,164 40,150 Z" fill="#2a0e04"/>
+        <!-- Planking lines -->
+        <path d="M30,120 Q100,136 170,120" stroke="#4a2510" stroke-width="1" fill="none" opacity="0.55"/>
+        <path d="M34,130 Q100,146 166,130" stroke="#4a2510" stroke-width="0.8" fill="none" opacity="0.35"/>
+        <!-- Gold stripe -->
+        <path d="M30,114 Q100,130 170,114" stroke="#c8922a" stroke-width="3" fill="none" opacity="0.9"/>
+        <!-- HULL UPGRADE: iron banding -->
+        <g id="hullUpgradeLayer" opacity="0">
+          <path d="M30,122 Q100,138 170,122" stroke="#8a8aaa" stroke-width="1.5" fill="none" opacity="0.65"/>
+          <path d="M34,132 Q100,148 166,132" stroke="#8a8aaa" stroke-width="1.2" fill="none" opacity="0.45"/>
+          <circle cx="54" cy="126" r="2.8" fill="#9090b0" opacity="0.8"/>
+          <circle cx="100" cy="130" r="2.8" fill="#9090b0" opacity="0.8"/>
+          <circle cx="146" cy="126" r="2.8" fill="#9090b0" opacity="0.8"/>
+        </g>
+        <!-- Cannon ports base -->
+        <rect x="54" y="120" width="13" height="9" rx="2" fill="#1a0a04" stroke="#5c3a1a" stroke-width="1"/>
+        <rect x="93" y="123" width="13" height="9" rx="2" fill="#1a0a04" stroke="#5c3a1a" stroke-width="1"/>
+        <rect x="132" y="120" width="13" height="9" rx="2" fill="#1a0a04" stroke="#5c3a1a" stroke-width="1"/>
+        <!-- CANNON UPGRADE: extra ports + glow -->
+        <g id="cannonUpgradeLayer" opacity="0">
+          <rect x="72" y="121" width="11" height="8" rx="2" fill="#200808" stroke="#8b1a1a" stroke-width="1"/>
+          <rect x="113" y="121" width="11" height="8" rx="2" fill="#200808" stroke="#8b1a1a" stroke-width="1"/>
+          <circle cx="55" cy="124" r="3.5" fill="#8b1a1a" opacity="0.5"/>
+          <circle cx="133" cy="124" r="3.5" fill="#8b1a1a" opacity="0.5"/>
+        </g>
+        <!-- Main mast -->
+        <line x1="82" y1="14" x2="82" y2="116" stroke="#5c3a1a" stroke-width="5"/>
+        <!-- Main sail -->
+        <path d="M82,18 C118,34 122,64 82,78 Z" fill="#f2e8d0" stroke="#d4c4a0" stroke-width="1" opacity="0.93"/>
+        <path d="M82,18 C46,34 42,64 82,78 Z" fill="#e8d8b8" stroke="#d4c4a0" stroke-width="1" opacity="0.86"/>
+        <line x1="46" y1="34" x2="118" y2="34" stroke="#5c3a1a" stroke-width="2.5" opacity="0.65"/>
+        <line x1="82" y1="34" x2="82" y2="78" stroke="#d4c4a0" stroke-width="0.8" opacity="0.3"/>
+        <!-- Mizzen mast -->
+        <line x1="120" y1="32" x2="120" y2="110" stroke="#5c3a1a" stroke-width="4"/>
+        <!-- Mizzen sail -->
+        <path d="M120,36 C148,50 150,70 120,82 Z" fill="#f2e8d0" stroke="#d4c4a0" stroke-width="1" opacity="0.88"/>
+        <path d="M120,36 C92,50 90,70 120,82 Z" fill="#e8d8b8" stroke="#d4c4a0" stroke-width="1" opacity="0.78"/>
+        <line x1="92" y1="50" x2="148" y2="50" stroke="#5c3a1a" stroke-width="2" opacity="0.55"/>
+        <!-- SAIL UPGRADE: topsails -->
+        <g id="sailUpgradeLayer" opacity="0">
+          <path d="M82,6 C104,12 106,22 82,26 Z" fill="#faf2de" opacity="0.92"/>
+          <path d="M82,6 C60,12 58,22 82,26 Z" fill="#f4e8cc" opacity="0.82"/>
+          <line x1="62" y1="12" x2="102" y2="12" stroke="#5c3a1a" stroke-width="1.5" opacity="0.6"/>
+          <path d="M120,24 C136,29 138,38 120,41 Z" fill="#faf2de" opacity="0.88"/>
+          <path d="M120,24 C104,29 102,38 120,41 Z" fill="#f4e8cc" opacity="0.78"/>
+          <line x1="82" y1="6" x2="26" y2="110" stroke="#5c3a1a" stroke-width="0.8" opacity="0.35"/>
+          <line x1="82" y1="6" x2="174" y2="112" stroke="#5c3a1a" stroke-width="0.8" opacity="0.25"/>
+        </g>
+        <!-- Flag pole + flag -->
+        <line x1="82" y1="14" x2="82" y2="2" stroke="#5c3a1a" stroke-width="2.5"/>
+        <path d="M82,2 L102,8 L82,14 Z" fill="#1a0a04"/>
+        <circle cx="92" cy="8" r="4" fill="white" opacity="0.88"/>
+        <circle cx="90" cy="7" r="1.2" fill="#1a0a04"/>
+        <circle cx="94" cy="7" r="1.2" fill="#1a0a04"/>
+        <path d="M90,9.5 Q92,11 94,9.5" stroke="#1a0a04" stroke-width="0.9" fill="none"/>
+        <!-- Bowsprit + rigging -->
+        <line x1="26" y1="107" x2="2" y2="90" stroke="#5c3a1a" stroke-width="4.5"/>
+        <line x1="82" y1="18" x2="26" y2="107" stroke="#5c3a1a" stroke-width="1.3" opacity="0.4"/>
+        <line x1="82" y1="18" x2="174" y2="112" stroke="#5c3a1a" stroke-width="1.3" opacity="0.3"/>
+        <line x1="2" y1="90" x2="82" y2="48" stroke="#5c3a1a" stroke-width="0.9" opacity="0.28"/>
+        <!-- Water reflection -->
+        <path d="M43,146 Q100,154 157,146" stroke="rgba(74,138,176,0.22)" stroke-width="1.2" fill="none"/>
+      </svg>
+    </div>
+    <div class="at-sea-label" id="atSeaLabel">
+      <h3>⚓ AT SEA</h3>
+      <p>The Crimson Tide ventures forth...</p>
+      <div class="timer-display" id="voyageTimer">--:--</div>
+    </div>
+    <div class="dock-water">
+      <div class="water-shimmer"></div>
+      <div class="water-shimmer2"></div>
+    </div>
+    <div class="lantern-glow" id="lanternGlow"></div>
+  </div>
+
+  <div class="tab-bar-wrapper">
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="showTab('ship')" id="tab-ship"><span class="tab-icon">⚓</span>SHIP</button>
+      <button class="tab-btn" onclick="showTab('market')" id="tab-market"><span class="tab-icon">🪙</span>MARKET</button>
+      <button class="tab-btn" onclick="showTab('upgrade')" id="tab-upgrade"><span class="tab-icon">⚒️</span>UPGRADES</button>
+      <button class="tab-btn" onclick="showTab('voyage')" id="tab-voyage"><span class="tab-icon">🗺️</span>VOYAGE</button>
+      <button class="tab-btn" onclick="showTab('log')" id="tab-log"><span class="tab-icon">📜</span>LOG</button>
+    </div>
+  </div>
+
+  <!-- SHIP PANEL -->
+  <div class="panel active" id="panel-ship">
+    <div class="panel-title">⚓ VESSEL STATUS</div>
+    <div class="ship-stat-grid">
+      <div class="stat-card"><div class="stat-label">Hull</div><div class="stat-value" id="statHull">42</div><div class="stat-bar"><div class="stat-fill" id="barHull" style="width:42%"></div></div></div>
+      <div class="stat-card"><div class="stat-label">Cannons</div><div class="stat-value" id="statCannon">28</div><div class="stat-bar"><div class="stat-fill" id="barCannon" style="width:28%"></div></div></div>
+      <div class="stat-card"><div class="stat-label">Speed</div><div class="stat-value" id="statSpeed">35</div><div class="stat-bar"><div class="stat-fill" id="barSpeed" style="width:35%"></div></div></div>
+      <div class="stat-card"><div class="stat-label">Cargo</div><div class="stat-value" id="statCargo">20</div><div class="stat-bar"><div class="stat-fill" id="barCargo" style="width:20%"></div></div></div>
+    </div>
+  </div>
+
+  <!-- MARKET PANEL -->
+  <div class="panel" id="panel-market">
+    <div class="panel-title">🪙 DOCK MARKET</div>
+    <div id="dockMarket"></div>
+  </div>
+
+  <!-- UPGRADE PANEL -->
+  <div class="panel" id="panel-upgrade">
+    <div class="panel-title">⚒️ UPGRADES</div>
+    <div id="upgradeList"></div>
+  </div>
+
+  <!-- VOYAGE PANEL -->
+  <div class="panel" id="panel-voyage">
+    <div class="panel-title">🗺️ SEND ON VOYAGE</div>
+    <div id="voyageList"></div>
+  </div>
+
+  <!-- LOG PANEL -->
+  <div class="panel" id="panel-log">
+    <div class="panel-title">📜 CAPTAIN'S LOG</div>
+    <div id="logList" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+</div>
+
+<!-- BATTLE SCREEN -->
+<div id="battle-screen">
+  <div class="battle-bg">
+    <div class="battle-sea"></div>
+    <div class="battle-horizon"></div>
+    <div class="battle-flash" id="battleFlash"></div>
+    <div class="enemy-ship-area">
+      <svg class="enemy-ship-svg" viewBox="0 0 120 90" xmlns="http://www.w3.org/2000/svg">
+        <path d="M15,55 Q60,68 105,55 L95,75 Q60,83 25,75 Z" fill="#2a1a1a" stroke="#5a2a2a" stroke-width="1.5"/>
+        <path d="M25,75 Q60,84 95,75 L97,80 Q60,89 23,80 Z" fill="#1a0808"/>
+        <line x1="55" y1="10" x2="55" y2="58" stroke="#3a1a1a" stroke-width="3"/>
+        <path d="M55,14 C75,22 77,38 55,46 Z" fill="#8b1a1a" opacity="0.9"/>
+        <path d="M55,14 C35,22 33,38 55,46 Z" fill="#6a1414" opacity="0.8"/>
+        <line x1="55" y1="10" x2="55" y2="2" stroke="#3a1a1a" stroke-width="2"/>
+        <path d="M55,2 L67,6 L55,10 Z" fill="#1a0808"/>
+        <circle cx="61" cy="6" r="2.5" fill="white" opacity="0.7"/>
+        <path d="M15,52 Q60,65 105,52" stroke="#8b1a1a" stroke-width="1.5" fill="none" opacity="0.7"/>
+      </svg>
+      <div class="enemy-name" id="enemyName">NAVAL SLOOP</div>
+      <div class="enemy-hp-bar"><div class="enemy-hp-fill" id="enemyHpFill" style="width:100%"></div></div>
+    </div>
+    <div class="player-ship-area">
+      <svg class="player-ship-svg" viewBox="0 0 200 160" xmlns="http://www.w3.org/2000/svg">
+        <path d="M30,100 Q100,115 170,100 L155,130 Q100,140 45,130 Z" fill="#3a1a08" stroke="#5c3a1a" stroke-width="2"/>
+        <path d="M45,130 Q100,142 155,130 L158,136 Q100,148 42,136 Z" fill="#2a0e04"/>
+        <path d="M35,108 Q100,122 165,108" stroke="#c8922a" stroke-width="2" fill="none" opacity="0.8"/>
+        <rect x="58" y="108" width="10" height="7" rx="2" fill="#1a0a04"/>
+        <rect x="93" y="111" width="10" height="7" rx="2" fill="#1a0a04"/>
+        <rect x="128" y="108" width="10" height="7" rx="2" fill="#1a0a04"/>
+        <line x1="85" y1="20" x2="85" y2="105" stroke="#5c3a1a" stroke-width="4"/>
+        <path d="M85,25 C110,35 115,55 85,65 Z" fill="#f2e8d0" opacity="0.9"/>
+        <path d="M85,25 C60,35 55,55 85,65 Z" fill="#e8d8b8" opacity="0.8"/>
+        <line x1="115" y1="35" x2="115" y2="100" stroke="#5c3a1a" stroke-width="3.5"/>
+        <path d="M115,38 C136,47 138,63 115,73 Z" fill="#f2e8d0" opacity="0.85"/>
+        <path d="M115,38 C94,47 92,63 115,73 Z" fill="#e8d8b8" opacity="0.75"/>
+        <line x1="85" y1="20" x2="85" y2="8" stroke="#5c3a1a" stroke-width="2"/>
+        <path d="M85,8 L100,12 L85,16 Z" fill="#1a0a04"/>
+        <circle cx="92" cy="12" r="3" fill="white" opacity="0.9"/>
+        <line x1="30" y1="95" x2="8" y2="82" stroke="#5c3a1a" stroke-width="3"/>
+      </svg>
+      <div class="player-name">THE CRIMSON TIDE</div>
+      <div class="player-hp-bar"><div class="player-hp-fill" id="playerHpFill" style="width:100%"></div></div>
+    </div>
+  </div>
+  <div class="battle-ui">
+    <div class="battle-log" id="battleLog">A ship approaches on the horizon...</div>
+    <div class="hp-display">
+      <span class="hp-you">⚓ Your HP: <span id="playerHpText">100</span></span>
+      <span class="hp-enemy">💀 Enemy HP: <span id="enemyHpText">100</span></span>
+    </div>
+    <div class="battle-actions">
+      <button class="battle-btn" id="btnFire" onclick="battleAction('fire')"><span class="btn-icon">💣</span>BROADSIDE<small>Fire all cannons</small></button>
+      <button class="battle-btn" id="btnFlee" onclick="battleAction('flee')"><span class="btn-icon">💨</span>FLEE<small>Try to escape</small></button>
+      <button class="battle-btn" id="btnBoard" onclick="battleAction('board')"><span class="btn-icon">⚔️</span>BOARD<small>Send crew to fight</small></button>
+      <button class="battle-btn" id="btnRepair" onclick="battleAction('repair')"><span class="btn-icon">🔧</span>PATCH<small>Emergency repairs</small></button>
+    </div>
+  </div>
+</div>
+
+<!-- RESULT SCREEN -->
+<div id="result-screen">
+  <div class="result-card">
+    <span class="result-icon" id="resultIcon">⚓</span>
+    <div class="result-title" id="resultTitle">VOYAGE COMPLETE</div>
+    <div class="result-body" id="resultBody">Your ship has returned.</div>
+    <div class="result-reward" id="resultReward"></div>
+    <button class="result-btn" onclick="closeResult()">WEIGH ANCHOR</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const state = {
+  gold: 250, rep: 12, atSea: false,
+  voyageEndTime: null, pendingVoyage: null,
+  stats: { hull: 42, cannon: 28, speed: 35, cargo: 20 },
+  upgrades: { cannons: 1, hull: 1, sails: 1, cargo: 1 },
+  log: [], rumBonus: false,
+  pendingFishHauls: [],
+  pendingRareCatch: null,
+  nightBuffs: { cannonBoost: false, shadowSail: false, doubleRum: false },
+};
+
+const RARE_CATCHES = [
+  { name:'Giant Octopus', icon:'🐙', value:180, flavour:'Eight arms, one fortune. The harbour master paid handsomely.' },
+  { name:'Hammerhead Shark', icon:'🦈', value:220, flavour:'A fearsome beast hauled aboard. Worth every coin.' },
+  { name:'Swordfish', icon:'🐟', value:150, flavour:'Swift and silver — the finest catch in the harbour this season.' },
+  { name:'Sea Turtle', icon:'🐢', value:130, flavour:'Ancient and wise. Sold to a collector for a tidy sum.' },
+  { name:'Giant Squid', icon:'🦑', value:260, flavour:'Legends said it was impossible to catch. The ship proved them wrong.' },
+  { name:'Pufferfish', icon:'🐡', value:90, flavour:'Poisonous but prized by the harbour alchemist. Handle carefully.' },
+  { name:'Oarfish', icon:'🐠', value:200, flavour:'Ten feet long and shimmering silver. The docks fell silent when it arrived.' },
+  { name:'Blue Marlin', icon:'🐋', value:170, flavour:'A prize catch — the fishmonger offered top coin without hesitation.' },
+];
+
+const UPGRADES = [
+  { id:'cannons', name:'Iron Cannons', icon:'💣', desc:'Heavier firepower for battle', stat:'cannon', bonusPerLevel:12, costs:[80,150,280,500], maxLevel:4 },
+  { id:'hull', name:'Reinforced Hull', icon:'🛡️', desc:'Stronger planking and more durability', stat:'hull', bonusPerLevel:15, costs:[100,180,320,600], maxLevel:4 },
+  { id:'sails', name:'Silk Sails', icon:'⛵', desc:'Faster winds and better escape chances', stat:'speed', bonusPerLevel:14, costs:[90,160,290,520], maxLevel:4 },
+  { id:'cargo', name:'Cargo Holds', icon:'📦', desc:'More space for plundered goods', stat:'cargo', bonusPerLevel:20, costs:[70,130,240,440], maxLevel:4 },
+];
+
+const ENEMIES = [
+  { name:'Merchant Sloop', hp:60, attack:8, gold:60 },
+  { name:'Naval Frigate', hp:90, attack:14, gold:120 },
+  { name:'War Galleon', hp:130, attack:20, gold:200 },
+];
+
+// ── DAY / NIGHT SYSTEM ──────────────────────────────────────────────────────
+
+const PHASES = {
+  dawn:  { label:'DAWN',  icon:'🌅', cls:'dawn',  timeLabel:'Dawn'  },
+  day:   { label:'DAY',   icon:'☀️', cls:'day',   timeLabel:'Day'   },
+  dusk:  { label:'DUSK',  icon:'🌇', cls:'dusk',  timeLabel:'Dusk'  },
+  night: { label:'NIGHT', icon:'🌙', cls:'night', timeLabel:'Night' },
+};
+
+// Simple local-time phase: dawn 5-7, day 7-18, dusk 18-21, night 21-5
+// Adjusted by user's UTC offset from geolocation
+const timeState = {
+  phase: 'day',
+  utcOffset: null,   // hours, e.g. +1 for BST — filled after geo lookup
+  locationName: null,
+  lastEventHour: -1,
+};
+
+const DAY_VOYAGES = [
+  { id:'patrol', name:'Coastal Patrol', desc:'Sail the nearby waters in clear daylight. Low risk, steady returns.', risk:'low', riskLabel:'LOW RISK', rewardMin:30, rewardMax:80, repGain:1, battleChance:0.15, durationMs:15000, durationLabel:'~15 seconds', phase:'any' },
+  { id:'merchant', name:'Merchant Lanes', desc:'Intercept trading vessels on busy daytime routes.', risk:'med', riskLabel:'MODERATE', rewardMin:80, rewardMax:200, repGain:3, battleChance:0.4, durationMs:25000, durationLabel:'~25 seconds', phase:'any' },
+  { id:'naval', name:'Naval Blockade', desc:'Strike against the empire. High risk, high glory.', risk:'high', riskLabel:'HIGH RISK', rewardMin:150, rewardMax:400, repGain:7, battleChance:0.75, durationMs:35000, durationLabel:'~35 seconds', phase:'any' },
+];
+
+const NIGHT_VOYAGES = [
+  { id:'smuggle', name:'Smuggler\'s Run', desc:'Under cover of darkness, slip past harbour patrols with contraband. Fog is your ally.', risk:'low', riskLabel:'NIGHT ONLY', rewardMin:60, rewardMax:140, repGain:2, battleChance:0.2, durationMs:15000, durationLabel:'~15 seconds', phase:'night', nightBonus: true },
+  { id:'ghost', name:'Ghost Ship Waters', desc:'Sail the cursed straits where phantom vessels roam. Fortune awaits the fearless.', risk:'high', riskLabel:'VERY HIGH', rewardMin:200, rewardMax:500, repGain:8, battleChance:0.8, durationMs:30000, durationLabel:'~30 seconds', phase:'night', nightBonus: true },
+  { id:'blackmarket', name:'Black Market Rendezvous', desc:'A clandestine meeting at sea. Sell what you\'ve taken and ask no questions.', risk:'med', riskLabel:'NIGHT ONLY', rewardMin:100, rewardMax:250, repGain:4, battleChance:0.35, durationMs:20000, durationLabel:'~20 seconds', phase:'night', nightBonus: true },
+];
+
+const DAWN_VOYAGES = [
+  { id:'earlybird', name:'Early Morning Raid', desc:'Strike before defenders are awake. Speed favours those who rise with the sun.', risk:'med', riskLabel:'DAWN ONLY', rewardMin:70, rewardMax:180, repGain:3, battleChance:0.3, durationMs:18000, durationLabel:'~18 seconds', phase:'dawn', nightBonus: false },
+];
+
+const DUSK_VOYAGES = [
+  { id:'lastlight', name:'Last Light Plunder', desc:'The final run before darkness. Merchants race home — intercept them.', risk:'med', riskLabel:'DUSK ONLY', rewardMin:90, rewardMax:220, repGain:4, battleChance:0.45, durationMs:22000, durationLabel:'~22 seconds', phase:'dusk', nightBonus: false },
+];
+
+const NIGHT_MARKET_ITEMS = [
+  { id:'blackpowder', icon:'💥', name:'Black Powder Keg', desc:'Extra charge — +30% cannon damage this voyage', cost:70, effect: () => { state.nightBuffs.cannonBoost = true; showToast('Cannon boost loaded!'); addLog('Loaded black powder — cannons hit harder tonight.','normal'); } },
+  { id:'shadowsail', icon:'🖤', name:'Shadow Sail', desc:'Dark canvas — reduces battle chance by 15% on night voyages', cost:90, effect: () => { state.nightBuffs.shadowSail = true; showToast('Shadow sail rigged!'); addLog('Shadow sail rigged. The darkness cloaks the ship.','normal'); } },
+  { id:'rumkeg', icon:'🥃', name:'Smuggler\'s Rum', desc:'Double morale bonus — +40% gold on next voyage', cost:80, effect: () => { state.rumBonus = true; state.nightBuffs.doubleRum = true; showToast('Smuggler\'s rum aboard! +40% gold!'); addLog('Smuggler\'s rum loaded. The ship sails bolder tonight.','normal'); } },
+];
+
+const NIGHT_EVENTS = [
+  { icon:'🌊', title:'ROGUE WAVE', desc:'A giant wave strikes! Hull takes 8 damage — but the sea gifts you salvage.', effect: (s) => { s.stats.hull = Math.max(10, s.stats.hull - 8); s.gold += 45; return '+45🪙 salvage, -8 Hull'; } },
+  { icon:'🌙', title:'MOONLIT BOUNTY', desc:'The full moon illuminates a floating chest. Fortune favours the watchful.', effect: (s) => { s.gold += 120; return '+120🪙 found'; } },
+  { icon:'👻', title:'GHOST SHIP SIGHTING', desc:'A spectral vessel drifts past. The harbourmaster pays for the account.', effect: (s) => { s.gold += 80; s.rep += 2; return '+80🪙 +2 REP'; } },
+  { icon:'🦈', title:'SHARK CIRCLING', desc:'A great shark eyes the hull. Your speed saves you — just.', effect: (s) => { s.rep += 1; return '+1 REP (close call)'; } },
+  { icon:'⚡', title:'STORM WARNING', desc:'Lightning strikes the mast! Sails take damage — repairs needed.', effect: (s) => { s.stats.speed = Math.max(10, s.stats.speed - 10); s.stats.hull = Math.max(10, s.stats.hull - 5); return '-10 Speed, -5 Hull'; } },
+  { icon:'🌫️', title:'FOG ROLLS IN', desc:'Dense fog blankets the harbour. A smuggler slips you contraband to stay quiet.', effect: (s) => { s.gold += 60; return '+60🪙 hush money'; } },
+  { icon:'🔱', title:'SEA GODS FAVOUR', desc:'The deep stirs. An ancient offering washes ashore.', effect: (s) => { s.gold += 200; s.rep += 3; return '+200🪙 +3 REP'; } },
+];
+
+function getPhaseForHour(h) {
+  if (h >= 5 && h < 7)  return 'dawn';
+  if (h >= 7 && h < 18) return 'day';
+  if (h >= 18 && h < 21) return 'dusk';
+  return 'night';
+}
+
+function detectPhase() {
+  const now = new Date();
+  let hour = now.getHours();
+  // If we have a UTC offset from geolocation, adjust
+  if (timeState.utcOffset !== null) {
+    const localOffset = now.getTimezoneOffset() / -60;
+    const diff = timeState.utcOffset - localOffset;
+    hour = (hour + diff + 24) % 24;
+  }
+  return getPhaseForHour(hour);
+}
+
+function applyPhase(phase) {
+  if (timeState.phase === phase) return;
+  const prev = timeState.phase;
+  timeState.phase = phase;
+  const bg = document.getElementById('oceanBg');
+  bg.className = 'ocean-bg phase-' + phase;
+  const badge = document.getElementById('phaseBadge');
+  const p = PHASES[phase];
+  badge.className = 'phase-badge ' + phase;
+  badge.textContent = p.icon + ' ' + p.label;
+  // Log phase change
+  const msgs = {
+    dawn:  'The sky blushes at the horizon. Dawn breaks over the harbour.',
+    day:   'The sun climbs high. The harbour stirs with life.',
+    dusk:  'The sky burns orange. Merchants race for port.',
+    night: 'Darkness falls. The harbour grows quiet — and dangerous.',
+  };
+  addLog(msgs[phase], 'normal');
+  // Refresh voyages and market when phase changes
+  renderVoyages();
+  renderDockMarket();
+  // Night event roll (once per night, ~40% chance)
+  if (phase === 'night' && prev !== 'night') {
+    setTimeout(() => maybeFireNightEvent(), 3000);
+  }
+}
+
+function maybeFireNightEvent() {
+  const now = new Date();
+  if (timeState.lastEventHour === now.getHours()) return;
+  if (Math.random() > 0.4) return;
+  timeState.lastEventHour = now.getHours();
+  const event = NIGHT_EVENTS[Math.floor(Math.random() * NIGHT_EVENTS.length)];
+  const result = event.effect(state);
+  document.getElementById('eventIcon').textContent = event.icon;
+  document.getElementById('eventTitle').textContent = event.title;
+  document.getElementById('eventDesc').textContent = event.desc + ' (' + result + ')';
+  document.getElementById('nightEventBanner').classList.add('show');
+  addLog(event.icon + ' ' + event.title + ': ' + event.desc + ' Result: ' + result, 'battle');
+  updateStats();
+}
+
+function dismissNightEvent() {
+  document.getElementById('nightEventBanner').classList.remove('show');
+}
+
+function initLocation() {
+  if (!navigator.geolocation) { initPhaseLoop(); return; }
+  navigator.geolocation.getCurrentPosition(pos => {
+    // Use Intl to get local timezone offset for coords via rough calculation
+    // We approximate using the longitude → UTC offset (15° per hour)
+    const lng = pos.coords.longitude;
+    timeState.utcOffset = Math.round(lng / 15);
+    timeState.locationName = 'your location';
+    initPhaseLoop();
+  }, () => {
+    // Denied/failed — just use device time
+    initPhaseLoop();
+  });
+}
+
+function initPhaseLoop() {
+  const phase = detectPhase();
+  timeState.phase = 'none'; // force applyPhase to run
+  applyPhase(phase);
+  renderVoyages(); // now safe — phase is set
+  // Check every 2 minutes for phase changes
+  setInterval(() => {
+    const p = detectPhase();
+    if (p !== timeState.phase) applyPhase(p);
+  }, 120000);
+}
+
+function getActiveVoyages() {
+  const phase = timeState.phase === 'none' ? 'day' : timeState.phase;
+  let voyages = [...DAY_VOYAGES];
+  if (phase === 'night') voyages = [...NIGHT_VOYAGES, ...DAY_VOYAGES.slice(0,1)];
+  if (phase === 'dawn')  voyages = [...DAWN_VOYAGES, ...DAY_VOYAGES];
+  if (phase === 'dusk')  voyages = [...DUSK_VOYAGES, ...DAY_VOYAGES];
+  return voyages;
+}
+
+function getNightMarketItems() {
+  const phase = timeState.phase === 'none' ? 'day' : timeState.phase;
+  return phase === 'night' ? NIGHT_MARKET_ITEMS : [];
+}
+
+// ── END DAY / NIGHT SYSTEM ───────────────────────────────────────────────────
+
+let battleState = null, voyageInterval = null;
+
+function init() {
+  renderUpgrades(); updateStats(); renderDockMarket();
+  addLog('Your ship sits ready at the dock. The sea calls...', 'normal');
+  initLocation();
+}
+
+function showTab(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'upgrade') renderUpgrades();
+  if (name === 'voyage') renderVoyages();
+  if (name === 'market') renderDockMarket();
+}
+
+function updateStats() {
+  document.getElementById('goldDisplay').textContent = state.gold;
+  document.getElementById('repDisplay').textContent = state.rep;
+  ['Hull','Cannon','Speed','Cargo'].forEach(k => {
+    const key = k.toLowerCase();
+    document.getElementById('stat'+k).textContent = state.stats[key];
+    document.getElementById('bar'+k).style.width = Math.min(100, state.stats[key]) + '%';
+  });
+}
+
+function renderUpgrades() {
+  const list = document.getElementById('upgradeList');
+  list.innerHTML = '';
+  UPGRADES.forEach(u => {
+    const lvl = state.upgrades[u.id];
+    const maxed = lvl >= u.maxLevel;
+    const cost = maxed ? 0 : u.costs[lvl - 1];
+    const div = document.createElement('div');
+    div.className = 'upgrade-item';
+    div.innerHTML = `<div class="upgrade-icon">${u.icon}</div>
+      <div class="upgrade-info">
+        <div class="upgrade-name">${u.name}</div>
+        <div class="upgrade-desc">${u.desc}</div>
+        <div class="upgrade-level">Lv ${lvl}/${u.maxLevel} · +${u.bonusPerLevel * lvl} ${u.stat.toUpperCase()}</div>
+      </div>
+      <button class="upgrade-btn" onclick="buyUpgrade('${u.id}')" ${maxed || state.gold < cost ? 'disabled' : ''}>
+        ${maxed ? 'MAXED' : cost + '🪙'}
+      </button>`;
+    list.appendChild(div);
+  });
+}
+
+function buyUpgrade(id) {
+  const u = UPGRADES.find(x => x.id === id);
+  const lvl = state.upgrades[id];
+  if (lvl >= u.maxLevel) return;
+  const cost = u.costs[lvl - 1];
+  if (state.gold < cost) { showToast('Not enough gold!'); return; }
+  state.gold -= cost;
+  state.upgrades[id]++;
+  state.stats[u.stat] += u.bonusPerLevel;
+  const newLvl = state.upgrades[id];
+  showToast(u.name + ' upgraded to Lv ' + newLvl + '!');
+  addLog(u.name + ' upgraded to level ' + newLvl + '!', 'normal');
+  renderUpgrades(); updateStats();
+  triggerUpgradeVisual(id, newLvl);
+}
+
+function triggerUpgradeVisual(id, lvl) {
+  // Show the relevant SVG layer
+  const layerMap = { cannons: 'cannonUpgradeLayer', hull: 'hullUpgradeLayer', sails: 'sailUpgradeLayer', cargo: 'cargoUpgradeLayer' };
+  const layer = document.getElementById(layerMap[id]);
+  if (layer) {
+    layer.style.transition = 'opacity 0.5s';
+    layer.style.opacity = Math.min(1, lvl * 0.28).toString();
+  }
+
+  // Glow flash on ship
+  const sprite = document.getElementById('shipSprite');
+  sprite.classList.remove('upgrade-flash');
+  void sprite.offsetWidth;
+  sprite.classList.add('upgrade-flash');
+  setTimeout(() => sprite.classList.remove('upgrade-flash'), 900);
+
+  // Particle burst
+  const scene = document.getElementById('shipScene');
+  const sceneRect = scene.getBoundingClientRect();
+  const cx = sceneRect.width / 2;
+  const cy = sceneRect.height * 0.45;
+  const colors = ['#e8b84b','#c8922a','#f2e8d0','#ffffff','#ffdd77'];
+  for (let i = 0; i < 22; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const angle = (i / 22) * 2 * Math.PI;
+    const dist = 60 + Math.random() * 80;
+    const tx = Math.cos(angle) * dist;
+    const ty = Math.sin(angle) * dist - 20;
+    const dur = (0.7 + Math.random() * 0.6).toFixed(2) + 's';
+    const size = (5 + Math.random() * 7).toFixed(1) + 'px';
+    p.style.cssText = `left:${cx}px;top:${cy}px;width:${size};height:${size};background:${colors[i % colors.length]};--tx:${tx}px;--ty:${ty}px;--dur:${dur};`;
+    scene.appendChild(p);
+    setTimeout(() => p.remove(), 1400);
+  }
+
+  // Floating label
+  const label = document.createElement('div');
+  label.className = 'upgrade-pop';
+  const icons = { cannons:'💣', hull:'🛡️', sails:'⛵', cargo:'📦' };
+  label.textContent = icons[id] + ' UPGRADED!';
+  label.style.cssText = `left:50%;top:${scene.offsetHeight * 0.4}px;`;
+  scene.appendChild(label);
+  setTimeout(() => label.remove(), 1500);
+}
+
+function renderVoyages() {
+  const list = document.getElementById('voyageList');
+  if (!list) return;
+  list.innerHTML = '';
+  if (state.atSea) {
+    list.innerHTML = '<div class="log-entry">Your ship is at sea. Await its return, Captain.</div>';
+    return;
+  }
+  const phase = timeState.phase === 'none' ? 'day' : timeState.phase;
+  const p = PHASES[phase] || PHASES.day;
+  // Phase header
+  const phaseNames = { day:'Daytime Routes', dawn:'Dawn Routes', dusk:'Dusk Routes', night:'Night Operations' };
+  list.innerHTML = `<div style="font-family:'Cinzel Decorative',serif;font-size:10px;color:var(--parchment-dark);letter-spacing:1px;padding:4px 2px 8px;opacity:0.8">${p.icon} ${phaseNames[phase] || 'Available Routes'}</div>`;
+  getActiveVoyages().forEach(v => {
+    const isNight = v.phase === 'night' || v.phase === 'dawn' || v.phase === 'dusk';
+    const div = document.createElement('div');
+    div.className = 'voyage-option' + (isNight ? ' night-voyage' : '');
+    div.innerHTML = `<div class="voyage-header"><div class="voyage-name">${v.name}</div><div class="voyage-risk risk-${v.risk}">${v.riskLabel}</div></div>
+      <div class="voyage-desc">${v.desc}</div>
+      <div class="voyage-reward">🪙 ${v.rewardMin}–${v.rewardMax} gold · +${v.repGain} rep${v.nightBonus ? ' · <span style="color:#8899dd">🌙 Night Bonus</span>' : ''}</div>
+      <div class="voyage-duration">⏱ Duration: ${v.durationLabel}</div>`;
+    div.onclick = () => sendVoyage(v);
+    list.appendChild(div);
+  });
+}
+
+function buyNightItem(id) {
+  const item = NIGHT_MARKET_ITEMS.find(x => x.id === id);
+  if (!item) return;
+  if (state.gold < item.cost) { showToast('Not enough gold!'); return; }
+  state.gold -= item.cost;
+  item.effect();
+  renderDockMarket();
+  updateStats();
+}
+
+function sendVoyage(voyage) {
+  if (state.atSea) return;
+  state.atSea = true;
+  state.voyageEndTime = Date.now() + voyage.durationMs;
+  state.pendingVoyage = voyage;
+  const sprite = document.getElementById('shipSprite');
+  sprite.classList.remove('rocking');
+  sprite.classList.add('sailing-away');
+  setTimeout(() => {
+    sprite.style.display = 'none';
+    document.getElementById('atSeaLabel').classList.add('visible');
+  }, 2000);
+  addLog('The Crimson Tide sets sail on: ' + voyage.name, 'normal');
+  showToast('Bon voyage, Captain!');
+  renderVoyages();
+  if (voyageInterval) clearInterval(voyageInterval);
+  voyageInterval = setInterval(() => {
+    const rem = state.voyageEndTime - Date.now();
+    if (rem <= 0) { clearInterval(voyageInterval); resolveVoyage(); }
+    else {
+      const s = Math.ceil(rem / 1000);
+      document.getElementById('voyageTimer').textContent = Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
+    }
+  }, 500);
+}
+
+function resolveVoyage() {
+  const v = state.pendingVoyage;
+  state.atSea = false;
+  state.pendingVoyage = null;
+  // Ship caught fish on the voyage — ready to sell at market
+  state.pendingFishHauls = [{ value: Math.floor(35 + Math.random() * 60) }];
+  const sprite = document.getElementById('shipSprite');
+  sprite.style.display = '';
+  sprite.classList.remove('sailing-away');
+  sprite.classList.add('returning');
+  document.getElementById('atSeaLabel').classList.remove('visible');
+  setTimeout(() => { sprite.classList.remove('returning'); sprite.classList.add('rocking'); }, 2100);
+
+  // Roll for rare catch (~35% chance per voyage)
+  if (Math.random() < 0.35) {
+    state.pendingRareCatch = {...RARE_CATCHES[Math.floor(Math.random() * RARE_CATCHES.length)]};
+  } else {
+    state.pendingRareCatch = null;
+  }
+
+  const trigger = Math.random();
+  let battleChance = v.battleChance;
+  if (state.nightBuffs.shadowSail) battleChance = Math.max(0.05, battleChance - 0.15);
+  if (trigger < battleChance) {
+    const ei = v.risk === 'low' ? 0 : v.risk === 'med' ? 1 : 2;
+    setTimeout(() => startBattle({...ENEMIES[ei]}, v), 2200);
+  } else {
+    const gold = Math.floor(v.rewardMin + Math.random() * (v.rewardMax - v.rewardMin));
+    let bonus = state.rumBonus ? Math.floor(gold * (state.nightBuffs.doubleRum ? 0.4 : 0.2)) : 0;
+    // Night voyage bonus (+20% on night voyages)
+    if (v.nightBonus && timeState.phase === 'night') bonus += Math.floor(gold * 0.2);
+    state.rumBonus = false;
+    state.nightBuffs.doubleRum = false;
+    state.nightBuffs.cannonBoost = false;
+    state.nightBuffs.shadowSail = false;
+    setTimeout(() => showResult('safe', gold + bonus, v.repGain, v), 2200);
+  }
+  renderVoyages();
+}
+
+function showResult(type, gold, rep, voyage) {
+  let icon, title, body;
+  if (type === 'safe') {
+    icon = ['🪙','💎','🗺️','⚓'][Math.floor(Math.random()*4)];
+    title = 'SAFE RETURN';
+    body = ['The crew returns victorious, holds heavy with plunder.', 'Under moonlit skies, your ship slips back into harbour.', 'A fortunate voyage — no blood spilled, plenty of gold gained.', 'The sea was kind today. Your reputation grows.'][Math.floor(Math.random()*4)];
+    state.gold += gold; state.rep += rep;
+    addLog('Returned safely from ' + voyage.name + '. Earned ' + gold + '🪙 +' + rep + ' rep.', 'treasure');
+  } else if (type === 'victory') {
+    icon = '⚔️'; title = 'VICTORY AT SEA';
+    body = 'Your crew fought bravely and prevailed. The enemy ship is taken!';
+    state.gold += gold; state.rep += rep + 3;
+    addLog('Won battle during ' + voyage.name + '. Earned ' + gold + '🪙', 'treasure');
+  } else {
+    icon = '💀'; title = 'SHIP RETURNS BATTERED';
+    body = 'Your vessel limps back to harbour, sails torn and hull cracked. The crew lives — barely.';
+    gold = 0; rep = 0;
+    addLog('Lost battle during ' + voyage.name + '. Ship took heavy damage.', 'battle');
+  }
+  // Rare catch hint
+  let rareLine = '';
+  if (state.pendingRareCatch) {
+    rareLine = '\n\n' + state.pendingRareCatch.icon + ' The crew hauled in something rare — check the Dock Market!';
+    addLog('Rare catch waiting at the dock: ' + state.pendingRareCatch.icon + ' ' + state.pendingRareCatch.name, 'treasure');
+  }
+  document.getElementById('resultIcon').textContent = icon;
+  document.getElementById('resultTitle').textContent = title;
+  document.getElementById('resultBody').textContent = body + rareLine;
+  document.getElementById('resultReward').textContent = gold > 0 ? '+' + gold + ' 🪙   +' + rep + ' REP' : 'No reward this time...';
+  document.getElementById('result-screen').classList.add('active');
+  updateStats();
+}
+
+function closeResult() {
+  document.getElementById('result-screen').classList.remove('active');
+  renderDockMarket();
+  updateStats();
+}
+
+function startBattle(enemy, voyage) {
+  battleState = { enemy, enemyHp: enemy.hp, playerHp: 100, voyage };
+  document.getElementById('enemyName').textContent = enemy.name.toUpperCase();
+  document.getElementById('enemyHpFill').style.width = '100%';
+  document.getElementById('playerHpFill').style.width = '100%';
+  document.getElementById('playerHpText').textContent = 100;
+  document.getElementById('enemyHpText').textContent = enemy.hp;
+  document.getElementById('battleLog').textContent = 'A ' + enemy.name + ' blocks your path! Choose your action, Captain!';
+  setBattleButtons(true);
+  document.getElementById('battle-screen').classList.add('active');
+}
+
+function setBattleButtons(e) {
+  ['btnFire','btnFlee','btnBoard','btnRepair'].forEach(id => document.getElementById(id).disabled = !e);
+}
+
+function battleAction(action) {
+  if (!battleState) return;
+  setBattleButtons(false);
+  const bs = battleState;
+  const cannonBonus = state.stats.cannon / 100;
+  const speedBonus = state.stats.speed / 100;
+  let msg = '';
+
+  if (action === 'fire') {
+    const boost = state.nightBuffs.cannonBoost ? 1.3 : 1.0;
+    const dmg = Math.floor((12 + cannonBonus * 20) * (0.7 + Math.random() * 0.6) * boost);
+    bs.enemyHp = Math.max(0, bs.enemyHp - dmg);
+    msg = '💣 BROADSIDE! You deal ' + dmg + ' damage!' + (state.nightBuffs.cannonBoost ? ' 💥 Black powder boost!' : '');
+  } else if (action === 'board') {
+    const dmg = Math.floor((8 + cannonBonus * 14) * (0.8 + Math.random() * 0.5));
+    bs.enemyHp = Math.max(0, bs.enemyHp - dmg);
+    msg = '⚔️ Your crew swarms the enemy! ' + dmg + ' melee damage!';
+  } else if (action === 'repair') {
+    const heal = Math.floor(15 + Math.random() * 15);
+    bs.playerHp = Math.min(100, bs.playerHp + heal);
+    msg = '🔧 Emergency repairs! Hull restored by ' + heal + ' HP.';
+  } else if (action === 'flee') {
+    const chance = 0.3 + speedBonus * 0.5;
+    if (Math.random() < chance) {
+      document.getElementById('battleLog').textContent = '💨 You vanish into the fog! The enemy loses you in the mist...';
+      setTimeout(() => {
+        document.getElementById('battle-screen').classList.remove('active');
+        addLog('Fled from ' + bs.enemy.name + '. No gold, but crew survived.', 'battle');
+        updateStats();
+      }, 1800);
+      return;
+    } else { msg = '💨 You try to flee — the enemy cuts you off!'; }
+  }
+
+  updateBattleDisplay(msg);
+
+  if (bs.enemyHp <= 0) {
+    setTimeout(() => {
+      document.getElementById('battle-screen').classList.remove('active');
+      showResult('victory', bs.enemy.gold, bs.voyage.repGain, bs.voyage);
+    }, 1200);
+    return;
+  }
+
+  setTimeout(() => {
+    const eDmg = Math.floor(bs.enemy.attack * (0.7 + Math.random() * 0.6));
+    bs.playerHp = Math.max(0, bs.playerHp - eDmg);
+    const eMsgs = ['💥 The ' + bs.enemy.name + ' returns fire! ' + eDmg + ' damage!', '🔥 Enemy broadside hits your hull for ' + eDmg + ' damage!', '💣 They fire back! ' + eDmg + ' to your ship!'];
+    updateBattleDisplay(eMsgs[Math.floor(Math.random()*3)]);
+    if (bs.playerHp <= 0) {
+      setTimeout(() => {
+        document.getElementById('battle-screen').classList.remove('active');
+        showResult('defeat', 0, 0, bs.voyage);
+      }, 1200);
+      return;
+    }
+    setBattleButtons(true);
+  }, 1000);
+}
+
+function updateBattleDisplay(msg) {
+  const bs = battleState;
+  document.getElementById('battleLog').textContent = msg;
+  document.getElementById('enemyHpFill').style.width = Math.max(0, (bs.enemyHp / bs.enemy.hp) * 100) + '%';
+  document.getElementById('playerHpFill').style.width = Math.max(0, bs.playerHp) + '%';
+  document.getElementById('playerHpText').textContent = Math.max(0, bs.playerHp);
+  document.getElementById('enemyHpText').textContent = Math.max(0, bs.enemyHp);
+  const f = document.getElementById('battleFlash');
+  f.classList.remove('flash'); void f.offsetWidth; f.classList.add('flash');
+}
+
+function trade(item) {
+  if (item === 'fishAll' || item.startsWith('fish')) {
+    if (state.pendingFishHauls.length === 0) return;
+    const total = state.pendingFishHauls.reduce((s, h) => s + h.value, 0);
+    state.gold += total;
+    state.pendingFishHauls = [];
+    showToast('Fish haul sold for ' + total + '🪙!');
+    addLog('Sold the voyage fish haul at the dock for ' + total + '🪙.', 'treasure');
+    renderDockMarket();
+    updateStats();
+  } else if (item === 'rareCatch') {
+    const catch_ = state.pendingRareCatch;
+    if (!catch_) return;
+    state.gold += catch_.value;
+    addLog('Sold rare catch: ' + catch_.icon + ' ' + catch_.name + ' for ' + catch_.value + '🪙! ' + catch_.flavour, 'treasure');
+    showToast(catch_.icon + ' Sold for ' + catch_.value + '🪙!');
+    state.pendingRareCatch = null;
+    renderDockMarket();
+    updateStats();
+  } else if (item === 'rum') {
+    if (state.gold < 50) { showToast('Not enough gold!'); return; }
+    state.gold -= 50; state.rumBonus = true;
+    showToast('Crew morale boosted! +20% next voyage.');
+    addLog('Bought rum barrels. Crew spirits are high!', 'normal');
+    updateStats();
+  } else if (item === 'repair') {
+    if (state.gold < 80) { showToast('Not enough gold!'); return; }
+    state.gold -= 80;
+    state.stats.hull = Math.min(100, state.stats.hull + 15);
+    showToast('Hull repaired! +15 Hull');
+    addLog('Emergency hull repairs completed.', 'normal');
+    updateStats();
+  }
+}
+
+function renderDockMarket() {
+  const container = document.getElementById('dockMarket');
+  if (!container) return;
+
+  // Fish haul section
+  let fishHTML = '';
+  if (state.pendingFishHauls.length > 0) {
+    const haul = state.pendingFishHauls[0];
+    fishHTML = `<div class="upgrade-item fish-haul-card">
+      <div class="upgrade-icon">🐟</div>
+      <div class="upgrade-info">
+        <div class="upgrade-name">Fish Haul</div>
+        <div class="upgrade-desc">The ship brought back a catch from the voyage</div>
+        <div class="upgrade-level" style="color:#6dba6d">Worth ${haul.value}🪙</div>
+      </div>
+      <button class="upgrade-btn" onclick="trade('fishAll')" style="background:linear-gradient(135deg,#2a6a2a,#1a4a1a);color:#a0e0a0">Sell<br>${haul.value}🪙</button>
+    </div>`;
+  } else if (state.atSea) {
+    fishHTML = `<div class="upgrade-item" style="opacity:0.45">
+      <div class="upgrade-icon">🐟</div>
+      <div class="upgrade-info"><div class="upgrade-name">Fish Haul</div><div class="upgrade-desc">The ship will bring back a catch — sell when it returns</div><div class="upgrade-level">Ship is at sea</div></div>
+    </div>`;
+  } else {
+    fishHTML = `<div class="upgrade-item" style="opacity:0.45">
+      <div class="upgrade-icon">🐟</div>
+      <div class="upgrade-info"><div class="upgrade-name">Fish Haul</div><div class="upgrade-desc">Send the ship on a voyage — it brings back a catch to sell</div><div class="upgrade-level">Available after next voyage</div></div>
+    </div>`;
+  }
+
+  // Rare catch section
+  let rareCatchHTML = '';
+  if (state.pendingRareCatch) {
+    const c = state.pendingRareCatch;
+    rareCatchHTML = `<div class="upgrade-item rare-catch-card">
+      <div class="upgrade-icon" style="font-size:30px">${c.icon}</div>
+      <div class="upgrade-info">
+        <div class="upgrade-name" style="color:var(--gold-light)">${c.name} — RARE CATCH!</div>
+        <div class="upgrade-desc">${c.flavour}</div>
+        <div class="upgrade-level" style="color:#6dba6d">Worth ${c.value}🪙</div>
+      </div>
+      <button class="upgrade-btn" onclick="trade('rareCatch')" style="background:linear-gradient(135deg,#4aaa4a,#2a6a2a);color:white">Sell<br>${c.value}🪙</button>
+    </div>`;
+  }
+
+  // Night market
+  let nightHTML = '';
+  const nightItems = getNightMarketItems();
+  if (nightItems.length > 0) {
+    nightHTML = `<div class="market-section-header" style="color:#8899dd;border-color:rgba(100,130,220,0.3)">🌙 BLACK MARKET — Night Only</div>`;
+    nightItems.forEach(item => {
+      const bought = state.nightBuffs[item.id === 'blackpowder' ? 'cannonBoost' : item.id === 'shadowsail' ? 'shadowSail' : 'doubleRum'];
+      nightHTML += `<div class="upgrade-item" style="border-color:rgba(100,130,220,0.3);background:rgba(8,12,30,0.6)${bought ? ';opacity:0.45' : ''}">
+        <div class="upgrade-icon">${item.icon}</div>
+        <div class="upgrade-info">
+          <div class="upgrade-name" style="color:#8899dd">${item.name}</div>
+          <div class="upgrade-desc">${item.desc}</div>
+        </div>
+        <button class="upgrade-btn" onclick="buyNightItem('${item.id}')" ${bought || state.gold < item.cost ? 'disabled' : ''} style="background:linear-gradient(135deg,#1a2a6a,#0a1240);color:#8899dd;border:1px solid rgba(100,130,220,0.4)">
+          ${bought ? 'ACTIVE' : item.cost + '🪙'}
+        </button>
+      </div>`;
+    });
+  }
+
+  container.innerHTML = fishHTML + rareCatchHTML + nightHTML + `
+    <div class="upgrade-item">
+      <div class="upgrade-icon">🍺</div>
+      <div class="upgrade-info"><div class="upgrade-name">Rum Barrels</div><div class="upgrade-desc">Boost crew morale — +20% gold on next voyage</div></div>
+      <button class="upgrade-btn" onclick="trade('rum')" ${state.gold < 50 ? 'disabled' : ''}>Buy<br>50🪙</button>
+    </div>
+    <div class="upgrade-item">
+      <div class="upgrade-icon">🔨</div>
+      <div class="upgrade-info"><div class="upgrade-name">Hull Repairs</div><div class="upgrade-desc">Patch planking and reinforce the keel</div></div>
+      <button class="upgrade-btn" onclick="trade('repair')" ${state.gold < 80 ? 'disabled' : ''}>Buy<br>80🪙</button>
+    </div>`;
+}
+
+
+function addLog(msg, type) {
+  state.log.unshift({ msg, type, time: new Date().toLocaleTimeString() });
+  if (state.log.length > 20) state.log.pop();
+  renderLog();
+}
+
+function renderLog() {
+  const list = document.getElementById('logList');
+  list.innerHTML = '';
+  state.log.forEach(e => {
+    const div = document.createElement('div');
+    div.className = 'log-entry ' + (e.type || '');
+    div.innerHTML = '<div class="log-time">' + e.time + '</div>' + e.msg;
+    list.appendChild(div);
+  });
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+init();
+</script>
+</body>
+</html>
